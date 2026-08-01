@@ -18,6 +18,8 @@ struct Pin: Codable, Identifiable, Equatable {
 final class PinStore {
     private(set) var pins: [Pin] = []
     private let fileURL: URL
+    private let decoder = JSONDecoder()
+    private let encoder = JSONEncoder()
 
     init() {
         let supportDirectory = FileManager.default.urls(
@@ -50,21 +52,17 @@ final class PinStore {
         save()
     }
 
-    func pins(for bundleIdentifier: String?) -> [Pin] {
-        pins.filter { $0.ownerBundleIdentifier == bundleIdentifier }
-    }
-
     private func load() {
         guard let data = try? Data(contentsOf: fileURL) else {
             pins = []
             return
         }
 
-        pins = (try? JSONDecoder().decode([Pin].self, from: data)) ?? []
+        pins = (try? decoder.decode([Pin].self, from: data)) ?? []
     }
 
     private func save() {
-        guard let data = try? JSONEncoder().encode(pins) else { return }
+        guard let data = try? encoder.encode(pins) else { return }
         try? data.write(to: fileURL, options: [.atomic])
     }
 }
@@ -75,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private let menu = NSMenu()
     private var activeApplication: NSRunningApplication?
+    private var iconCache: [String: NSImage] = [:]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -114,27 +113,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let frontApp = activeApplication
         let ownerName = frontApp?.localizedName ?? "Current App"
         let ownerBundleIdentifier = frontApp?.bundleIdentifier
-
-        let header = NSMenuItem(title: ownerName, action: nil, keyEquivalent: "")
-        header.isEnabled = false
-        menu.addItem(header)
-
-        let hint = NSMenuItem(title: "Local only. No Accessibility access required.", action: nil, keyEquivalent: "")
-        hint.isEnabled = false
-        menu.addItem(hint)
-        menu.addItem(.separator())
+        let sortedPins = store.pins.sorted(by: pinTitleAscending)
 
         addAction("Pin File for \(ownerName)", action: #selector(pinFileForFrontApp))
         addAction("Pin Folder for \(ownerName)", action: #selector(pinFolderForFrontApp))
         // addAction("Pin \(ownerName)", action: #selector(pinFrontApp))
 
-        let appPins = store.pins(for: ownerBundleIdentifier)
-        if appPins.isEmpty == false {
-            menu.addItem(.separator())
-            addSection("Pinned for \(ownerName)", pins: appPins)
+        if let ownerBundleIdentifier {
+            let appPins = sortedPins.filter { $0.ownerBundleIdentifier == ownerBundleIdentifier }
+            if appPins.isEmpty == false {
+                menu.addItem(.separator())
+                addSection("Pinned for \(ownerName)", pins: appPins)
+            }
         }
 
-        let globalPins = store.pins(for: nil)
+        let globalPins = sortedPins.filter { $0.ownerBundleIdentifier == nil }
         if globalPins.isEmpty == false {
             menu.addItem(.separator())
             addSection("Always Pinned", pins: globalPins)
@@ -142,7 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         if store.pins.isEmpty == false {
             menu.addItem(.separator())
-            addRemoveMenu()
+            addRemoveMenu(sortedPins)
         }
 
         menu.addItem(.separator())
@@ -157,24 +150,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         section.isEnabled = false
         menu.addItem(section)
 
-        for pin in pins.sorted(by: { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }) {
+        for pin in pins {
             let item = NSMenuItem(title: pin.title, action: #selector(openPin(_:)), keyEquivalent: "")
             item.target = self
-            item.representedObject = pin.id.uuidString
+            item.representedObject = pin.id
             item.image = icon(for: pin)
             menu.addItem(item)
         }
     }
 
-    private func addRemoveMenu() {
+    private func addRemoveMenu(_ pins: [Pin]) {
         let removeItem = NSMenuItem(title: "Remove Pin", action: nil, keyEquivalent: "")
         let removeMenu = NSMenu()
 
-        for pin in store.pins.sorted(by: { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }) {
+        for pin in pins {
             let title = pin.ownerName.map { "\(pin.title) - \($0)" } ?? pin.title
             let item = NSMenuItem(title: title, action: #selector(removePin(_:)), keyEquivalent: "")
             item.target = self
-            item.representedObject = pin.id.uuidString
+            item.representedObject = pin.id
             item.image = icon(for: pin)
             removeMenu.addItem(item)
         }
@@ -190,8 +183,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func icon(for pin: Pin) -> NSImage? {
+        let cacheKey = pin.url.path
+        if let image = iconCache[cacheKey] {
+            return image
+        }
+
         let image = NSWorkspace.shared.icon(forFile: pin.url.path)
         image.size = NSSize(width: 16, height: 16)
+        iconCache[cacheKey] = image
         return image
     }
 
@@ -282,8 +281,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func pin(from sender: NSMenuItem) -> Pin? {
-        guard let idString = sender.representedObject as? String,
-              let id = UUID(uuidString: idString) else {
+        guard let id = sender.representedObject as? UUID else {
             return nil
         }
 
@@ -319,6 +317,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
             app.terminate()
         }
+    }
+
+    private func pinTitleAscending(_ lhs: Pin, _ rhs: Pin) -> Bool {
+        lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
     }
 }
 
