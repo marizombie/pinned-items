@@ -207,7 +207,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
 
+        if openPinWithOwnerApplication(pin) {
+            return
+        }
+
         NSWorkspace.shared.open(pin.url)
+    }
+
+    private func openPinWithOwnerApplication(_ pin: Pin) -> Bool {
+        guard let ownerBundleIdentifier = pin.ownerBundleIdentifier,
+              let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: ownerBundleIdentifier) else {
+            return false
+        }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        NSWorkspace.shared.open([pin.url], withApplicationAt: appURL, configuration: configuration)
+        return true
     }
 
     @objc private func removePin(_ sender: NSMenuItem) {

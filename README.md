@@ -8,7 +8,8 @@ macOS does not provide a public API for third-party apps to rewrite another app'
 
 - Pin files or folders to the currently active app.
 - Pin files or folders globally.
-- Open pinned files and folders from the menu bar.
+- Open app-scoped pinned files and folders with their pinned app.
+- Open globally pinned files and folders with the default app.
 - Remove pins from the menu.
 - Stores pins locally at `~/Library/Application Support/PinnedItems/pins.json`.
 
