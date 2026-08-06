@@ -119,12 +119,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         addAction("Pin Folder for \(ownerName)", action: #selector(pinFolderForFrontApp))
         // addAction("Pin \(ownerName)", action: #selector(pinFrontApp))
 
-        if let ownerBundleIdentifier {
-            let appPins = sortedPins.filter { $0.ownerBundleIdentifier == ownerBundleIdentifier }
-            if appPins.isEmpty == false {
-                menu.addItem(.separator())
-                addSection("Pinned for \(ownerName)", pins: appPins)
-            }
+        let appPins = ownerBundleIdentifier.map { bundleIdentifier in
+            sortedPins.filter { $0.ownerBundleIdentifier == bundleIdentifier }
+        } ?? []
+        if appPins.isEmpty == false {
+            menu.addItem(.separator())
+            addSection("Pinned for \(ownerName)", pins: appPins)
         }
 
         let globalPins = sortedPins.filter { $0.ownerBundleIdentifier == nil }
@@ -133,9 +133,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             addSection("Always Pinned", pins: globalPins)
         }
 
-        if store.pins.isEmpty == false {
+        let removablePins = appPins + globalPins
+        if removablePins.isEmpty == false {
             menu.addItem(.separator())
-            addRemoveMenu(sortedPins)
+            addRemoveMenu(removablePins)
         }
 
         menu.addItem(.separator())
