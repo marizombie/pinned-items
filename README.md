@@ -54,3 +54,11 @@ Drag `Pinned.app` to `Applications`, then launch it from there.
 ## Notes
 
 Pins scoped to an app appear when that app is frontmost. For example, pins created while VS Code is active appear in the `Pinned for Visual Studio Code` section when VS Code is the active app.
+
+## License
+
+Pinned is licensed under the PolyForm Noncommercial License 1.0.0. You may use, modify, and distribute it for noncommercial purposes. See [LICENSE](LICENSE) for the full terms.
+
+## Patent Notice
+
+This project is provided for noncommercial use only. No patent rights are granted beyond those expressly provided in the PolyForm Noncommercial License 1.0.0. The author does not grant permission to patent this project, its code, or derivative works based on it.
