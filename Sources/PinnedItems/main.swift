@@ -212,12 +212,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
 
+        if openGitRepositoryInVSCode(pin) {
+            return
+        }
+
         NSWorkspace.shared.open(pin.url)
     }
 
     private func openPinWithOwnerApplication(_ pin: Pin) -> Bool {
         guard let ownerBundleIdentifier = pin.ownerBundleIdentifier,
               let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: ownerBundleIdentifier) else {
+            return false
+        }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        NSWorkspace.shared.open([pin.url], withApplicationAt: appURL, configuration: configuration)
+        return true
+    }
+
+    private func openGitRepositoryInVSCode(_ pin: Pin) -> Bool {
+        // .git is a directory in a normal clone and a file in worktrees and submodules.
+        guard pin.kind == .folder,
+              FileManager.default.fileExists(atPath: pin.url.appendingPathComponent(".git").path),
+              let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.microsoft.VSCode") else {
             return false
         }
 
